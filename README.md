@@ -18,7 +18,7 @@ Il sistema rileva traffico sospetto su una rete virtuale, genera un alert strutt
 
 ```mermaid
 flowchart LR
-    A[Ubuntu VM\nAttacker] -- ICMP flood --> B[Kali Linux VM\nInternal Server]
+    A[Kali Linux VM\nAttacker] -- ICMP flood --> B[Ubuntu VM\nInternal Server]
     B -- TShark cattura traffico --> C[script.py]
     C -- se soglia superata --> D[alert.json]
     D -- API call --> E[Airia AI Agent]
