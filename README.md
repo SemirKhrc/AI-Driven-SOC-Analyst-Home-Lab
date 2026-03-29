@@ -1,72 +1,92 @@
 # AI-Driven SOC Analyst — Home Lab
 
-Workflow SOC automatizzato end-to-end: dalla cattura del traffico di rete al triage tramite agente AI, senza intervento manuale.
+Pipeline SOC automatizzata end-to-end: rileva minacce di rete in tempo reale, le analizza tramite agente AI e invia notifiche istantanee — senza intervento manuale.
 
 ---
 
-## Cosa dimostra questo progetto
+## Il problema che risolve
 
-In un SOC reale, la maggior parte del lavoro degli analisti junior è ripetitivo: stessi alert, stesse analisi, stesso triage. Questo lab replica quel problema e lo risolve con l'automazione.
-
-Il sistema rileva traffico sospetto su una rete virtuale, genera un alert strutturato e lo invia a un agente AI addestrato con un playbook SOC. L'agente risponde con una classificazione della minaccia, un risk score, un piano d'azione e un executive summary — tutto in modo autonomo.
+In un SOC reale, gli analisti junior passano la maggior parte del tempo su lavoro ripetitivo: stessi alert, stessa analisi, stesso triage. Questo progetto automatizza quell'intero ciclo su un ambiente homelab, dalla cattura del pacchetto alla notifica su Telegram.
 
 ---
 
-## Architettura
+## Come funziona — pipeline in 6 step
 
 ```mermaid
 flowchart LR
-    A[Ubuntu VM\nAttacker] -- ICMP flood --> B[Kali Linux VM\nInternal Server]
-    B -- TShark cattura traffico --> C[script.py]
-    C -- se soglia superata --> D[alert.json]
-    D -- API call --> E[Airia AI Agent]
-    E -- risposta strutturata --> F[Output SOC\nrisk score · action plan · summary]
+    A[🖥️ Attacker VM\nUbuntu] -- traffico sospetto --> B[🛡️ Internal Server\nKali Linux]
+    B --> C[capture.py\nTShark]
+    C --> D[analyze.py\nRilevamento minacce]
+    D --> E[enrich.py\nGeo + AbuseIPDB]
+    E --> F[airia.py\nTriage AI]
+    F --> G[(alerts.db\nSQLite)]
+    F --> H[📱 Telegram\nNotifica]
+    G --> I[🌐 Dashboard\nFlask]
 ```
 
----
+| Step | Script | Cosa fa |
+|------|--------|---------|
+| 1 | `capture.py` | Cattura traffico di rete con TShark su `eth0` |
+| 2 | `analyze.py` | Rileva ICMP Flood, Port Scan, SSH Brute Force |
+| 3 | `enrich.py` | Arricchisce l'IP con geolocalizzazione (ip-api.com) e reputazione (AbuseIPDB) |
+| 4 | `airia.py` | Invia l'alert all'agente AI e ottiene il verdetto SOC |
+| 5 | `db.py` | Persiste l'alert su database SQLite |
+| 6 | `notifier.py` | Invia notifica real-time via Telegram Bot |
 
-## Workflow tecnico
-
-| Step | Operazione | Strumento |
-|------|------------|-----------|
-| 1 | Cattura traffico in tempo reale su `eth0` | TShark |
-| 2 | Conversione `.pcap` → `.csv` | Python |
-| 3 | Analisi: se un IP supera 30 pacchetti viene flaggato | Python |
-| 4 | Generazione automatica di `alert.json` | Python |
-| 5 | Invio alert all'agente AI via API REST | Requests |
-| 6 | Triage AI basato su playbook SOC | Airia AI + GPT-4o Nano |
+La pipeline viene eseguita ogni 5 minuti tramite cron. La dashboard Flask (`dashboard.py`) permette di consultare lo storico degli alert via browser.
 
 ---
 
-## Logica del SOC Playbook (agente AI)
+## Minacce rilevate
 
-L'agente non è un chatbot generico. Segue istruzioni precise che definiscono come analizzare ogni alert:
+| Tipo | Come viene rilevata | Soglia |
+|------|---------------------|--------|
+| **ICMP Flood** | Pacchetti ICMP verso il server target | > 40 pacchetti |
+| **Port Scan** | Porte TCP uniche raggiunte via SYN | > 10 porte |
+| **SSH Brute Force** | Fallimenti di login in `/var/log/auth.log` | > 5 tentativi |
 
-- **Input validation** — verifica che l'alert sia in formato JSON valido
-- **Threat classification** — categorizza il tipo di minaccia
-- **Risk scoring** — assegna un punteggio da 1 a 10
-- **MITRE ATT&CK mapping** — associa le tattiche rilevate al framework
-- **Action plan** — determina l'azione: monitorare, resettare credenziali, escalare
-- **Escalation logic** — decide se l'alert richiede intervento umano
-- **Executive summary** — spiega la situazione in linguaggio non tecnico
+---
 
-Sono anche definiti guardrail espliciti: l'agente non genera codice exploit, non inventa telemetria mancante e dichiara apertamente quando i dati sono insufficienti per una valutazione.
+## Agente AI — SOC Playbook
+
+L'agente AI non risponde a testo libero: segue un playbook strutturato in 12 sezioni che definisce esattamente come analizzare ogni alert.
+
+Per ogni minaccia rilevata produce un output JSON con:
+
+- **Threat classification** — categoria della minaccia (es. *Suspicious Network Volume*, *Brute Force Attempt*)
+- **Risk score (0–100)** — calcolato con modello additivo su packet count, time window, porta target, protocollo
+- **MITRE ATT&CK mapping** — fino a due tecniche verificate da ATT&CK v15+
+- **False positive assessment** — valutazione attiva se l'alert è rumore legittimo
+- **Action plan** — azioni prioritizzate: monitorare, bloccare IP, escalare, isolare host
+- **Escalation logic** — score ≥ 80 → escalation entro 15 min · score 60–79 → Tier 2 entro 1 ora
+- **Executive summary** — spiegazione in linguaggio non tecnico per chi non è del settore
+
+Guardrail integrati: l'agente non genera codice exploit, non inventa dati mancanti, dichiara esplicitamente quando le informazioni sono insufficienti.
 
 ---
 
 ## Prompt Engineering
 
-Il SOC playbook usato per istruire l'agente AI è stato generato tramite **Claude Code**, utilizzando una skill specializzata per il prompt engineering.
+Il SOC playbook è stato generato tramite **Claude Code**, utilizzando una skill specializzata per il prompt engineering.
 
-Il processo è stato il seguente:
+L'approccio è stato strutturato in tre fasi:
 
-1. Definito il contesto operativo — agente AI che deve comportarsi come analista SOC junior
-2. Specificate le sezioni necessarie: input validation, threat classification, risk scoring, action plan, escalation logic, executive summary, guardrail
-3. Claude Code ha prodotto il playbook completo e strutturato, ottimizzato per essere interpretato correttamente da un LLM in un contesto enterprise
+1. Definizione del contesto — agente AI in modalità esclusivamente difensiva, con ruolo da analista SOC enterprise
+2. Specifica delle sezioni — input validation, chain-of-thought reasoning, scoring model, MITRE mapping, false positive assessment, escalation logic, guardrail, output format
+3. Generazione e validazione — il playbook prodotto da Claude Code è stato testato con alert reali fino a ottenere output JSON coerenti e professionali
 
-Questo approccio dimostra come il prompt engineering non sia solo "scrivere testo" ma un'attività tecnica strutturata, dove la qualità dell'output dipende dalla precisione con cui si definiscono obiettivi, vincoli e formato atteso.
+Il playbook completo è nel file [`soc_playbook.txt`](./soc_playbook.txt).
 
-Il playbook finale è incluso nel file [`soc_playbook.txt`](./soc_playbook.txt).
+---
+
+## Integrazioni esterne
+
+| Servizio | Funzione |
+|----------|----------|
+| [AbuseIPDB](https://www.abuseipdb.com) | Reputazione IP e threat intelligence |
+| [ip-api.com](http://ip-api.com) | Geolocalizzazione IP (gratuita) |
+| [Airia AI](https://airia.com) | Piattaforma di orchestrazione AI per il triage SOC |
+| Telegram Bot API | Notifiche real-time degli alert |
 
 ---
 
@@ -74,60 +94,110 @@ Il playbook finale è incluso nel file [`soc_playbook.txt`](./soc_playbook.txt).
 
 | Area | Dettaglio |
 |------|-----------|
-| Network analysis | Cattura e parsing di pacchetti con TShark |
-| Python scripting | Automazione completa del pipeline di rilevamento |
-| API integration | Comunicazione con piattaforma AI enterprise via REST |
-| AI orchestration | Configurazione agente AI su piattaforma enterprise (Airia AI) |
-| Prompt engineering | Generazione del SOC playbook tramite Claude Code — struttura, guardrail e output format definiti tecnicamente |
-| Virtualizzazione Linux | Ambiente multi-VM su VirtualBox con rete bridge |
-| SOC methodology | Triage, risk scoring, escalation logic |
+| Network analysis | Cattura e parsing pacchetti con TShark; rilevamento ICMP Flood, Port Scan, SSH Brute Force |
+| Python scripting | Pipeline modulare a 6 step con orchestrazione via `main.py` |
+| API integration | AbuseIPDB, ip-api.com, Airia AI, Telegram Bot — tutte con gestione credenziali via `.env` |
+| AI orchestration | Configurazione agente Airia AI con playbook SOC a 12 sezioni |
+| Prompt engineering | SOC playbook generato con Claude Code — scoring model, guardrail, output JSON stretto |
+| Database | Persistenza alert su SQLite con query parametrizzate (prevenzione SQL injection) |
+| Web development | Dashboard Flask per lo storico alert, accessibile solo in localhost con HTTP Basic Auth |
+| Automazione | Scheduling pipeline via cron ogni 5 minuti |
+| Virtualizzazione Linux | Ambiente multi-VM su VirtualBox con rete bridge (Ubuntu + Kali Linux) |
+| Security best practice | Credenziali in `.env`, `.gitignore`, bind su `127.0.0.1`, `chmod 600` su file sensibili |
 
 ---
 
-## Requisiti
+## Struttura del progetto
 
-- VirtualBox con due VM (Ubuntu + Kali Linux) su rete bridge
-- Python 3.x con le librerie `subprocess`, `csv`, `requests`, `json`
-- TShark installato sulla VM server
-- Account Airia AI con API key attiva
+```
+.
+├── main.py            # Orchestratore — esegue i 6 step in sequenza
+├── config.py          # Carica variabili da .env
+├── capture.py         # Step 1: cattura traffico
+├── analyze.py         # Step 2: rilevamento minacce
+├── enrich.py          # Step 3: arricchimento IP
+├── airia.py           # Step 4: triage AI
+├── db.py              # Step 5: persistenza SQLite
+├── notifier.py        # Step 6: notifica Telegram
+├── dashboard.py       # Dashboard web Flask
+├── soc_playbook.txt   # Prompt di sistema per l'agente AI
+├── .env.example       # Template configurazione (il .env vero non è committato)
+└── .gitignore
+```
 
 ---
 
-## Come eseguirlo
-
-**1. Avvia il monitoraggio sulla VM server (Kali Linux):**
+## Setup rapido
 
 ```bash
-python3 soc_monitor.py
+# 1. Installa le dipendenze
+sudo apt install tshark
+pip install requests python-dotenv flask
+
+# 2. Configura le credenziali
+cp .env.example .env
+nano .env   # Inserisci API key Airia, AbuseIPDB, Telegram token e IP del server
+
+# 3. Inizializza il database
+python db.py
+
+# 4. Esegui la pipeline
+python main.py
+
+# 5. Avvia la dashboard (opzionale)
+python dashboard.py   # → http://127.0.0.1:5000
 ```
 
-**2. Genera traffico dalla VM attacker (Ubuntu):**
-
+**Scheduling automatico:**
 ```bash
-ping -c 50 <IP_SERVER>
+crontab -e
+# Aggiungi:
+*/5 * * * * /usr/bin/python3 /path/to/main.py >> /var/log/soc_pipeline.log 2>&1
 ```
-
-Lo script cattura il traffico, analizza i pacchetti e — se la soglia viene superata — invia l'alert all'agente AI e stampa la risposta a schermo.
 
 ---
 
 ## Esempio di output
 
-```
-[!] IP sospetto rilevato: 192.168.0.239 (70 pacchetti)
-[*] Alert inviato ad Airia AI...
-[+] Risposta ricevuta (HTTP 200)
+Alert JSON inviato all'agente:
 
-Alert Type   : Suspicious ICMP Flood
-Risk Score   : 6 / 10
-Action       : Monitor
-Escalate     : No
-MITRE Tactic : Reconnaissance (T1595)
-Summary      : Rilevato volume anomalo di pacchetti ICMP da un singolo host
-               interno. Nessuna compromissione confermata. Consigliato
-               monitoraggio continuato nelle prossime 24 ore.
+```json
+{
+    "alert_id": "SOC-3F8A1C2D",
+    "alert_type": "Suspicious Network Volume",
+    "indicator_type": "ip",
+    "indicator_value": "192.168.1.45",
+    "destination_host": "Internal-server",
+    "destination_ip": "192.168.1.11",
+    "evidence": {
+        "packet_count": 57,
+        "time_window_seconds": 100,
+        "data_source": "traffic.pcap"
+    }
+}
 ```
 
----
+Risposta dell'agente AI:
+
+```json
+{
+    "alert_id": "SOC-3F8A1C2D",
+    "threat_classification": "Suspicious Network Volume",
+    "risk_score": 55,
+    "risk_level": "Medium",
+    "score_breakdown": ["> 50 packets: +30", "60-299s window: +10", "ICMP pattern: +15"],
+    "mitre_mapping": {
+        "primary": { "tactic": "Reconnaissance", "technique_id": "T1595", "technique_name": "Active Scanning" }
+    },
+    "false_positive_indicators": ["Volume consistent with automated ping test or monitoring agent"],
+    "recommended_actions": [
+        { "action": "Monitor and observe for recurrence", "priority": "Medium" },
+        { "action": "Enrich with threat intelligence (geo-IP, ASN)", "priority": "Medium" }
+    ],
+    "escalation_required": false,
+    "escalation_sla": "Flag for daily summary report",
+    "executive_summary": "Un dispositivo interno ha inviato un volume anomalo di richieste verso il server. Nessuna compromissione confermata. Consigliato monitoraggio nelle prossime 24 ore."
+}
+```
 
 *Home lab personale — realizzato per approfondire l'intersezione tra cybersecurity e AI applicata ai workflow SOC.*
