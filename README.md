@@ -103,7 +103,7 @@ Il playbook completo è nel file [`soc_playbook.txt`](./soc_playbook.txt).
 | Web development | Dashboard Flask per lo storico alert, accessibile solo in localhost con HTTP Basic Auth |
 | Automazione | Scheduling pipeline via cron ogni 5 minuti |
 | Virtualizzazione Linux | Ambiente multi-VM su VirtualBox con rete bridge (Ubuntu + Kali Linux) |
-| Security best practice | Credenziali in `.env`, `.gitignore`, bind su `127.0.0.1`, `chmod 600` su file sensibili |
+| Security best practice | Credenziali in `.env`, `.gitignore`, `chmod 600` su file sensibili |
 
 ---
 
