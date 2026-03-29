@@ -1,8 +1,6 @@
-
-
 # AI-Driven SOC Analyst — Home Lab
 
-Workflow SOC automatizzato end-to-end: dalla cattura del traffico di rete al triage tramite agente AI, senza intervento manuale.[README.md](https://github.com/user-attachments/files/26331585/README.md)
+Workflow SOC automatizzato end-to-end: dalla cattura del traffico di rete al triage tramite agente AI, senza intervento manuale.
 
 ---
 
@@ -18,7 +16,7 @@ Il sistema rileva traffico sospetto su una rete virtuale, genera un alert strutt
 
 ```mermaid
 flowchart LR
-    A[Kali Linux VM\nAttacker] -- ICMP flood --> B[Ubuntu VM\nInternal Server]
+    A[Ubuntu VM\nAttacker] -- ICMP flood --> B[Kali Linux VM\nInternal Server]
     B -- TShark cattura traffico --> C[script.py]
     C -- se soglia superata --> D[alert.json]
     D -- API call --> E[Airia AI Agent]
@@ -56,6 +54,22 @@ Sono anche definiti guardrail espliciti: l'agente non genera codice exploit, non
 
 ---
 
+## Prompt Engineering
+
+Il SOC playbook usato per istruire l'agente AI è stato generato tramite **Claude Code**, utilizzando una skill specializzata per il prompt engineering.
+
+Il processo è stato il seguente:
+
+1. Definito il contesto operativo — agente AI che deve comportarsi come analista SOC junior
+2. Specificate le sezioni necessarie: input validation, threat classification, risk scoring, action plan, escalation logic, executive summary, guardrail
+3. Claude Code ha prodotto il playbook completo e strutturato, ottimizzato per essere interpretato correttamente da un LLM in un contesto enterprise
+
+Questo approccio dimostra come il prompt engineering non sia solo "scrivere testo" ma un'attività tecnica strutturata, dove la qualità dell'output dipende dalla precisione con cui si definiscono obiettivi, vincoli e formato atteso.
+
+Il playbook finale è incluso nel file [`soc_playbook.txt`](./soc_playbook.txt).
+
+---
+
 ## Skill applicate
 
 | Area | Dettaglio |
@@ -63,8 +77,8 @@ Sono anche definiti guardrail espliciti: l'agente non genera codice exploit, non
 | Network analysis | Cattura e parsing di pacchetti con TShark |
 | Python scripting | Automazione completa del pipeline di rilevamento |
 | API integration | Comunicazione con piattaforma AI enterprise via REST |
-| AI orchestration | Configurazione agente + prompt engineering per contesto SOC |
-| Prompt engineering | SOC playbook strutturato con sezioni, output format e guardrail |
+| AI orchestration | Configurazione agente AI su piattaforma enterprise (Airia AI) |
+| Prompt engineering | Generazione del SOC playbook tramite Claude Code — struttura, guardrail e output format definiti tecnicamente |
 | Virtualizzazione Linux | Ambiente multi-VM su VirtualBox con rete bridge |
 | SOC methodology | Triage, risk scoring, escalation logic |
 
